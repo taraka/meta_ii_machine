@@ -76,7 +76,8 @@ impl VM {
                 Opcode::GN1 => self.gn1(),
                 Opcode::GN2 => self.gn2(),
                 Opcode::END => self.end(),
-                _ => panic!("Unknown opcode {:#?}", self.get_current_opcode())
+                Opcode::NUM => self.num(),
+                Opcode::B => self.b(),
             }
         }
     }
@@ -159,6 +160,15 @@ impl VM {
         std::process::exit(0);
     }
 
+    fn b(&mut self) {
+        self.ip += 1;
+        let addr = self.get_addr();
+    }
+
+    fn num(&mut self) {
+        self.ip += 1;
+    }
+
     fn get_addr(&mut self) -> usize {
         let addr = usize::from_le_bytes(self.code[self.ip..(self.ip+self.addrsize)].try_into().expect("Failed raising address"));
         self.ip += self.addrsize;
@@ -194,7 +204,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     f.read_to_end(&mut code_bytes)?;
 
     let mut vm = VM::new(code_bytes);
-    //println!("{:?}", vm.code);
+
     vm.run();
 
     Ok(())
