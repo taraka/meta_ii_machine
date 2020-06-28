@@ -33,16 +33,22 @@ struct VM {
     header: [u8; 8],
     code: Vec<u8>,
     ip: usize,
-    addrsize: usize
+    addrsize: usize,
+    switch: bool,
+    last_value: String,
+    input: Vec<u8>
 }
 
 impl VM {
-    fn new(input: Vec<u8>) -> VM {
+    fn new(code: Vec<u8>, input: Vec<u8>) -> VM {
         let vm = VM {
-            header: input[0..8].try_into().expect("Header was wrong size"),
-            code: input[8..].to_vec(),
+            header: code[0..8].try_into().expect("Header was wrong size"),
+            code: code[8..].to_vec(),
             ip: 0,
-            addrsize: (*input.get(7).expect("Unable to get addrsize")) as usize
+            addrsize: (*code.get(7).expect("Unable to get addrsize")) as usize,
+            switch: false,
+            last_value: String::new(),
+            input
         };
 
         vm.validate_header();
@@ -57,7 +63,9 @@ impl VM {
     }
 
     fn run(&mut self) {
+        println!("{}: {:?}", self.code.len(), self.code);
         loop {
+            println!("ip: {}, {}", self.ip, self.code.get(self.ip).unwrap());
             match self.get_current_opcode() {
                 Opcode::ADR => self.adr(),
                 Opcode::TST => self.tst(),
@@ -88,71 +96,141 @@ impl VM {
 
     fn adr(&mut self) {
         self.ip += 1;
-        let addr = self.get_addr();
+        let _addr = self.get_addr();
     }
 
     fn tst(&mut self) {
         self.ip += 1;
-        let string = self.get_string();
+        let string = self.consume_string();
+        self.consume_input_whitespace();
+
+        if self.input[0..string.len()] == *string.as_bytes() {
+            self.ip += string.len() + 1;
+            self.last_value = string;
+            self.switch = true;
+        }
+        else {
+            self.switch = false;
+        }
+
     }
 
     fn bf(&mut self) {
         self.ip += 1;
         let addr = self.get_addr();
+        if !self.switch {
+            self.ip = addr;
+        }
     }
 
     fn cl(&mut self) {
         self.ip += 1;
-        let string = self.get_string();
+        let string = self.consume_string();
+        print!("{} ", string);
     }
 
     fn out(&mut self) {
+        // Todo...
         self.ip += 1;
     }
 
     fn bt(&mut self) {
         self.ip += 1;
         let addr = self.get_addr();
+        if self.switch {
+            self.ip = addr;
+        }
     }
 
     fn str(&mut self) {
         self.ip += 1;
+        self.consume_input_whitespace();
+
+        if *self.input.first().unwrap() as char == '\'' {
+            self.switch = true;
+            self.input.remove(0);
+
+            let mut c = *self.input.first().unwrap() as char;
+            let mut string = String::new();
+
+            while c != '\'' {
+                string.push(c);
+                self.input.remove(0);
+                c = *self.input.first().unwrap() as char;
+            }
+            self.last_value = string;
+            self.input.remove(0);
+        }
+        else {
+            self.switch = false;
+        }
     }
 
     fn ci(&mut self) {
         self.ip += 1;
+        print!("{}", self.last_value);
     }
 
     fn r(&mut self) {
+        //Todo....
         self.ip += 1;
     }
 
     fn be(&mut self) {
         self.ip += 1;
+        if !self.switch {
+            std::process::exit(1);
+        }
     }
 
     fn cll(&mut self) {
+        // Todo...
         self.ip += 1;
         let addr = self.get_addr();
     }
 
     fn set(&mut self) {
         self.ip += 1;
+        self.switch = true;
     }
 
     fn id(&mut self) {
         self.ip += 1;
+        self.consume_input_whitespace();
+
+        if (*self.input.first().unwrap() as char).is_ascii_alphabetic() {
+            self.switch = true;
+
+            let mut string = String::new();
+
+            loop {
+                let c = *self.input.first().unwrap() as char;
+                if " \t\r\n".contains(c) {
+                    break;
+                }
+                string.push(c);
+                self.input.remove(0);
+
+            }
+            self.last_value = string;
+        }
+        else {
+            self.switch = false;
+        }
     }
 
     fn lb(&mut self) {
+        // Todo...
         self.ip += 1;
     }
 
     fn gn1(&mut self) {
+        // Todo...
         self.ip += 1;
     }
 
     fn gn2(&mut self) {
+        // Todo...
         self.ip += 1;
     }
 
@@ -162,21 +240,44 @@ impl VM {
 
     fn b(&mut self) {
         self.ip += 1;
-        let addr = self.get_addr();
+        self.ip = self.get_addr();
     }
 
     fn num(&mut self) {
+        // Todo...
         self.ip += 1;
     }
 
     fn get_addr(&mut self) -> usize {
-        let addr = usize::from_le_bytes(self.code[self.ip..(self.ip+self.addrsize)].try_into().expect("Failed raising address"));
+        let mut bytes: [u8;8] = [0,0,0,0,0,0,0,0];
+        bytes.copy_from_slice( &self.code[self.ip..(self.ip + self.addrsize)]);
+        let addr = usize::from_le_bytes(bytes);
         self.ip += self.addrsize;
         //println!("Got addr: {}", addr);
         return addr;
     }
 
-    fn get_string(&mut self) -> String {
+    fn get_input_string(&mut self) -> String {
+        let mut string =  String::new();
+        let mut offset: usize = 0;
+
+        loop {
+            let c = *self.code.get(self.ip + offset).unwrap();
+            if c != 0 {
+                string.push(c as char);
+            }
+            offset += 1;
+            if c == 0 {
+                break;
+            }
+        }
+
+        //println!("Got string: {}", string);
+
+        return string;
+    }
+
+    fn consume_string(&mut self) -> String {
         let mut string =  String::new();
 
         loop {
@@ -194,16 +295,27 @@ impl VM {
 
         return string;
     }
+
+    fn consume_input_whitespace(&mut self) {
+        while " \t\n\r".contains(*self.input.first().unwrap() as char) {
+            //Could use a better way to do this as this will copy all the elements
+            self.input.remove(0);
+        }
+    }
 }
 
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     let mut f = File::open(args.get(1).expect("Please provide a program file"))?;
+
     let mut code_bytes: Vec<u8> = Vec::new();
     f.read_to_end(&mut code_bytes)?;
 
-    let mut vm = VM::new(code_bytes);
+    let mut input_bytes: Vec<u8> = Vec::new();
+    std::io::stdin().read_to_end(&mut input_bytes)?;
+
+    let mut vm = VM::new(code_bytes, input_bytes);
 
     vm.run();
 
