@@ -39,6 +39,8 @@ struct VM {
     input: Vec<u8>,
     stack: Vec<Vec<u8>>,
     next_label: u32,
+    output: String,
+    output_label: bool
 }
 
 impl VM {
@@ -53,6 +55,8 @@ impl VM {
             input,
             stack: vec![vec![0, 0, 0 ,0 ,0 ,0 ,0 ,0 ,0], Vec::new(), Vec::new()], // first empty stack frame
             next_label: 0,
+            output: String::new(),
+            output_label: false,
         };
 
         vm.validate_header();
@@ -135,12 +139,17 @@ impl VM {
     fn cl(&mut self) {
         self.ip += 1;
         let string = self.consume_string();
-        print!("{} ", string);
+        self.output.push_str(&format!("{} ", string)[..]);
     }
 
     fn out(&mut self) {
         self.ip += 1;
-        print!("\n\t");
+        if !self.output_label {
+            print!("\t");
+        }
+        print!("{}\n", self.output);
+        self.output = String::new();
+        self.output_label = false;
     }
 
     fn bt(&mut self) {
@@ -181,7 +190,8 @@ impl VM {
 
     fn ci(&mut self) {
         self.ip += 1;
-        print!("{} ", self.last_value);
+
+        self.output.push_str(&format!("{} ", self.last_value)[..]);
     }
 
     fn r(&mut self) {
@@ -274,7 +284,7 @@ impl VM {
 
     fn lb(&mut self) {
         self.ip += 1;
-        print!("\n");
+        self.output_label = true;
     }
 
     fn gn1(&mut self) {
@@ -288,7 +298,7 @@ impl VM {
             unsafe { self.stack.get_mut(stack_i).unwrap().append(new_label.as_mut_vec()); }
         }
 
-        print!("{} ", String::from_utf8((*self.stack.get(stack_i).unwrap()).clone()).unwrap());
+        self.output.push_str(&format!("{} ", String::from_utf8((*self.stack.get(stack_i).unwrap()).clone()).unwrap())[..]);
     }
 
     fn gn2(&mut self) {
@@ -302,7 +312,7 @@ impl VM {
             unsafe { self.stack.get_mut(stack_i).unwrap().append(new_label.as_mut_vec()); }
         }
 
-        print!("{} ", String::from_utf8((*self.stack.get(stack_i).unwrap()).clone()).unwrap());
+        self.output.push_str(&format!("{} ", String::from_utf8((*self.stack.get(stack_i).unwrap()).clone()).unwrap())[..]);
     }
 
     fn end(&mut self) {
