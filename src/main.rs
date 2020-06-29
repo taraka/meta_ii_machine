@@ -201,9 +201,9 @@ impl VM {
             self.stack.get_mut(len - 1 ).unwrap().drain(..);
             self.stack.get_mut(len - 2 ).unwrap().drain(..);
         }
-        self.stack.pop();
 
         self.ip = addr;
+        //println!("new Stack {:?}", self.stack);
     }
 
     fn be(&mut self) {
@@ -277,7 +277,7 @@ impl VM {
             // Mutable so it can be drained in to the cell
             let mut new_label = self.new_label();
             // Probably be a better way to do this, but this was quick
-            unsafe { self.stack.get_mut(stack_i - 2).unwrap().append(new_label.as_mut_vec()); }
+            unsafe { self.stack.get_mut(stack_i).unwrap().append(new_label.as_mut_vec()); }
         }
 
         print!("{} ", String::from_utf8((*self.stack.get(stack_i).unwrap()).clone()).unwrap());
@@ -291,7 +291,7 @@ impl VM {
             // Mutable so it can be drained in to the cell
             let mut new_label = self.new_label();
             // Probably be a better way to do this, but this was quick
-            unsafe { self.stack.get_mut(stack_i - 2).unwrap().append(new_label.as_mut_vec()); }
+            unsafe { self.stack.get_mut(stack_i).unwrap().append(new_label.as_mut_vec()); }
         }
 
         print!("{} ", String::from_utf8((*self.stack.get(stack_i).unwrap()).clone()).unwrap());
