@@ -36,7 +36,8 @@ struct VM {
     addrsize: usize,
     switch: bool,
     last_value: String,
-    input: Vec<u8>
+    input: Vec<u8>,
+    stack: Vec<Vec<u8>>
 }
 
 impl VM {
@@ -48,7 +49,8 @@ impl VM {
             addrsize: (*code.get(7).expect("Unable to get addrsize")) as usize,
             switch: false,
             last_value: String::new(),
-            input
+            input,
+            stack: vec![vec![0, 0, 0 ,0 ,0 ,0 ,0 ,0 ,0], Vec::new(), Vec::new()], // first empty stack frame
         };
 
         vm.validate_header();
@@ -64,8 +66,10 @@ impl VM {
 
     fn run(&mut self) {
         println!("{}: {:?}", self.code.len(), self.code);
+        println!("{:?}", &self.code[700..710]);
         loop {
             println!("ip: {}, {}", self.ip, self.code.get(self.ip).unwrap());
+
             match self.get_current_opcode() {
                 Opcode::ADR => self.adr(),
                 Opcode::TST => self.tst(),
@@ -96,7 +100,8 @@ impl VM {
 
     fn adr(&mut self) {
         self.ip += 1;
-        let _addr = self.get_addr();
+        let addr = self.get_addr();
+        self.ip = addr;
     }
 
     fn tst(&mut self) {
@@ -172,8 +177,29 @@ impl VM {
     }
 
     fn r(&mut self) {
-        //Todo....
+        println!("Returning {:?}", self.stack);
         self.ip += 1;
+
+        let return_frame = self.stack.get(self.stack.len() - 3 ).unwrap();
+        let framesize = *return_frame.first().unwrap();
+        let mut addr_bytes: [u8;8] = [0,0,0,0,0,0,0,0];
+        addr_bytes.copy_from_slice(&return_frame[1..]);
+        let addr = usize::from_le_bytes(addr_bytes);
+
+        if framesize == 3 {
+            self.stack.pop();
+            self.stack.pop();
+            self.stack.pop();
+        }
+        else {
+            self.stack.pop();
+            let len = self.stack.len();
+            self.stack.get_mut(len - 1 ).unwrap().drain(..);
+            self.stack.get_mut(len - 2 ).unwrap().drain(..);
+        }
+        self.stack.pop();
+
+        self.ip = addr;
     }
 
     fn be(&mut self) {
@@ -184,9 +210,23 @@ impl VM {
     }
 
     fn cll(&mut self) {
-        // Todo...
+        println!("Calling {:?}", self.stack);
         self.ip += 1;
         let addr = self.get_addr();
+        let mut framesize: u8 = 1;
+
+        // Are the top too cells empty
+        if self.stack.get(self.stack.len() -1 ).unwrap().len() != 0 ||
+            self.stack.get(self.stack.len() - 2 ).unwrap().len() != 0 {
+            self.stack.push(Vec::new());
+            self.stack.push(Vec::new());
+            framesize = 3;
+        }
+
+        self.stack.push(Vec::new());
+        let len = self.stack.len();
+        self.stack.get_mut(len - 3 ).unwrap().push(framesize);
+        self.stack.get_mut(len - 3 ).unwrap().append(&mut self.ip.to_le_bytes().to_vec());
     }
 
     fn set(&mut self) {
