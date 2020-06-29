@@ -101,6 +101,7 @@ impl VM {
     fn adr(&mut self) {
         self.ip += 1;
         let addr = self.get_addr();
+        println!("{}", addr);
         self.ip = addr;
     }
 
@@ -110,9 +111,9 @@ impl VM {
         self.consume_input_whitespace();
 
         if self.input[0..string.len()] == *string.as_bytes() {
-            self.ip += string.len() + 1;
-            self.last_value = string;
             self.switch = true;
+            self.input.drain(0..string.len());
+            self.last_value = string;
         }
         else {
             self.switch = false;
@@ -135,8 +136,8 @@ impl VM {
     }
 
     fn out(&mut self) {
-        // Todo...
         self.ip += 1;
+        print!("\n\t");
     }
 
     fn bt(&mut self) {
@@ -173,7 +174,7 @@ impl VM {
 
     fn ci(&mut self) {
         self.ip += 1;
-        print!("{}", self.last_value);
+        print!("{} ", self.last_value);
     }
 
     fn r(&mut self) {
@@ -227,6 +228,7 @@ impl VM {
         let len = self.stack.len();
         self.stack.get_mut(len - 3 ).unwrap().push(framesize);
         self.stack.get_mut(len - 3 ).unwrap().append(&mut self.ip.to_le_bytes().to_vec());
+        self.ip = addr;
     }
 
     fn set(&mut self) {
@@ -260,8 +262,8 @@ impl VM {
     }
 
     fn lb(&mut self) {
-        // Todo...
         self.ip += 1;
+        print!("\n");
     }
 
     fn gn1(&mut self) {
