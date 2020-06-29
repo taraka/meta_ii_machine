@@ -67,10 +67,10 @@ impl VM {
     }
 
     fn run(&mut self) {
-        println!("{}: {:?}", self.code.len(), self.code);
-        println!("{:?}", &self.code[700..710]);
+        //println!("{}: {:?}", self.code.len(), self.code);
+        //println!("{:?}", &self.code[700..710]);
         loop {
-            println!("ip: {}, {}", self.ip, self.code.get(self.ip).unwrap());
+            //println!("ip: {}, {}", self.ip, self.code.get(self.ip).unwrap());
 
             match self.get_current_opcode() {
                 Opcode::ADR => self.adr(),
@@ -110,7 +110,7 @@ impl VM {
     fn tst(&mut self) {
         self.ip += 1;
         let string = self.consume_string();
-        println!("Testing for string: {:?}\nInput: {:?}", string, String::from_utf8_lossy(&self.input[0..string.len()+10]));
+        //println!("Testing for string: {:?}\nInput: {:?}", string, String::from_utf8_lossy(&self.input[0..string.len()]));
         self.consume_input_whitespace();
 
         if self.input[0..string.len()] == *string.as_bytes() {
@@ -156,19 +156,23 @@ impl VM {
         self.consume_input_whitespace();
 
         if *self.input.first().unwrap() as char == '\'' {
+            let mut string = String::new();
+
             self.switch = true;
             self.input.remove(0);
+            string.push('\'');
 
             let mut c = *self.input.first().unwrap() as char;
-            let mut string = String::new();
 
             while c != '\'' {
                 string.push(c);
                 self.input.remove(0);
                 c = *self.input.first().unwrap() as char;
             }
-            self.last_value = string;
+
             self.input.remove(0);
+            string.push('\'');
+            self.last_value = string;
         }
         else {
             self.switch = false;
@@ -189,6 +193,10 @@ impl VM {
         let mut addr_bytes: [u8;8] = [0,0,0,0,0,0,0,0];
         addr_bytes.copy_from_slice(&return_frame[1..]);
         let addr = usize::from_le_bytes(addr_bytes);
+
+        if framesize == 0 {
+            self.end();
+        }
 
         if framesize == 3 {
             self.stack.pop();
@@ -250,7 +258,7 @@ impl VM {
 
             loop {
                 let c = *self.input.first().unwrap() as char;
-                if " \t\r\n".contains(c) {
+                if !c.is_ascii_alphanumeric() {
                     break;
                 }
                 string.push(c);
@@ -360,7 +368,7 @@ impl VM {
     }
 
     fn consume_input_whitespace(&mut self) {
-        while " \t\n\r".contains(*self.input.first().unwrap() as char) {
+        while " \t\n\r".contains(*self.input.first().unwrap_or(&b'a') as char) {
             //Could use a better way to do this as this will copy all the elements
             self.input.remove(0);
         }
