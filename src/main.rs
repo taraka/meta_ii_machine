@@ -37,7 +37,8 @@ struct VM {
     switch: bool,
     last_value: String,
     input: Vec<u8>,
-    stack: Vec<Vec<u8>>
+    stack: Vec<Vec<u8>>,
+    next_label: u32,
 }
 
 impl VM {
@@ -51,6 +52,7 @@ impl VM {
             last_value: String::new(),
             input,
             stack: vec![vec![0, 0, 0 ,0 ,0 ,0 ,0 ,0 ,0], Vec::new(), Vec::new()], // first empty stack frame
+            next_label: 0,
         };
 
         vm.validate_header();
@@ -101,13 +103,14 @@ impl VM {
     fn adr(&mut self) {
         self.ip += 1;
         let addr = self.get_addr();
-        println!("{}", addr);
+        // println!("{}", addr);
         self.ip = addr;
     }
 
     fn tst(&mut self) {
         self.ip += 1;
         let string = self.consume_string();
+        println!("Testing for string: {:?}\nInput: {:?}", string, String::from_utf8_lossy(&self.input[0..string.len()+10]));
         self.consume_input_whitespace();
 
         if self.input[0..string.len()] == *string.as_bytes() {
@@ -178,7 +181,7 @@ impl VM {
     }
 
     fn r(&mut self) {
-        println!("Returning {:?}", self.stack);
+        //println!("Returning {:?}", self.stack);
         self.ip += 1;
 
         let return_frame = self.stack.get(self.stack.len() - 3 ).unwrap();
@@ -211,7 +214,7 @@ impl VM {
     }
 
     fn cll(&mut self) {
-        println!("Calling {:?}", self.stack);
+        //println!("Calling {:?}", self.stack);
         self.ip += 1;
         let addr = self.get_addr();
         let mut framesize: u8 = 1;
@@ -267,13 +270,31 @@ impl VM {
     }
 
     fn gn1(&mut self) {
-        // Todo...
         self.ip += 1;
+        let stack_i = self.stack.len() -2;
+
+        if self.stack.get(stack_i).unwrap().len() == 0 {
+            // Mutable so it can be drained in to the cell
+            let mut new_label = self.new_label();
+            // Probably be a better way to do this, but this was quick
+            unsafe { self.stack.get_mut(stack_i - 2).unwrap().append(new_label.as_mut_vec()); }
+        }
+
+        print!("{} ", String::from_utf8((*self.stack.get(stack_i).unwrap()).clone()).unwrap());
     }
 
     fn gn2(&mut self) {
-        // Todo...
         self.ip += 1;
+        let stack_i = self.stack.len() - 1;
+
+        if self.stack.get(stack_i).unwrap().len() == 0 {
+            // Mutable so it can be drained in to the cell
+            let mut new_label = self.new_label();
+            // Probably be a better way to do this, but this was quick
+            unsafe { self.stack.get_mut(stack_i - 2).unwrap().append(new_label.as_mut_vec()); }
+        }
+
+        print!("{} ", String::from_utf8((*self.stack.get(stack_i).unwrap()).clone()).unwrap());
     }
 
     fn end(&mut self) {
@@ -286,7 +307,7 @@ impl VM {
     }
 
     fn num(&mut self) {
-        // Todo...
+        // Todo... but not used in the metacompiler
         self.ip += 1;
     }
 
@@ -343,6 +364,14 @@ impl VM {
             //Could use a better way to do this as this will copy all the elements
             self.input.remove(0);
         }
+    }
+
+    fn new_label(&mut self) -> String {
+        let char = ((self.next_label / 100) as u8 + 65) as char;
+        let num = self.next_label % 100;
+        self.next_label += 1;
+
+        return format!("{}{}", char, num);
     }
 }
 
